@@ -1,5 +1,4 @@
-import re
-import os
+import sys, getopt, os, re
 from collections import Counter
 
 import numpy as np
@@ -14,8 +13,8 @@ class CTA:
     TABLES_DIR = 'dataset/tables'
     result_list = ''
 
-    def __init__(self):
-
+    def __init__(self, annotation_no=1):
+        self.annotation_no = annotation_no
         self.df_targets = pd.read_csv(
             os.path.join(self.TARGET_DIR, "CTA_Round1_Targets.csv"), 
             header=None, nrows=120, names=['table_id', 'column_id'],
@@ -75,7 +74,8 @@ class CTA:
             row["ontology"] = ''
             return row
         
-        row["ontology"] = ontology_counter.most_common(1)[0][0]
+        row["ontology"] = ",".join(
+            [el[0] for el in ontology_counter.most_common(self.annotation_no)])
 
         result = "%s,%s,%s" % (row["table_id"], row["column_id"], row["ontology"])
         print(result)
@@ -95,6 +95,35 @@ class CTA:
             self.save_to_file()
 
 
-cta_obj = CTA()
 
-cta_obj.run()
+def main(argv):
+    annotations = 1
+    
+    try:
+        opts, _ = getopt.getopt(argv, "n:", ["annotations="])
+    except getopt.GetoptError:
+        print('main.py -n <annotations number>')
+        sys.exit(2)
+    
+    for opt, arg in opts:
+        if opt in ("-n", "--annotations"):
+            annotations = arg
+        else:
+            print('main.py -n <annotations number>')
+            sys.exit(2)
+    try:
+        annotations = int(annotations)
+    except ValueError:
+        # print(annotations, type(annotations))
+        print('main.py -n <annotations number:int>')
+        sys.exit(2)
+
+    cta_obj = CTA(annotation_no=annotations)
+    try:
+        cta_obj.run()
+    except KeyboardInterrupt:
+        print("Exiting...")
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+
