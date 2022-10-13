@@ -1,4 +1,6 @@
 import sys, getopt, os, re
+
+from io import StringIO
 from collections import Counter
 
 import numpy as np
@@ -93,14 +95,46 @@ class CTA:
         answer = input("Save to file? [y/N]")
         if answer in "yYyes":
             self.save_to_file()
+        return self.result_list
+
+
+def compare_with_gt(results=None, file_path=''):
+    if results is None and not file_path:
+        print(
+            "Either results or file path to results"
+            " file is required"
+        )
+        sys.exit(2)
+    
+    csv_ = file_path or StringIO(results)
+
+    gt_df = pd.read_csv(
+        os.path.join(CTA.GT_DIR, "CTA_Round1_gt.csv"), 
+        header=None
+    )
+    results_df = pd.read_csv(csv_, header=None)
+    elements_len =  len(gt_df[2])
+    points = 0
+
+    for i, el in enumerate(gt_df[2]):
+        try:
+            if el == results_df[2][i]:
+                points += 1
+        except:
+            pass
+
+    score = points / elements_len
+
+    print("Score:", "{:.1%}".format(score))
 
 
 
 def main(argv):
     annotations = 1
+    filepath = None
     
     try:
-        opts, _ = getopt.getopt(argv, "n:", ["annotations="])
+        opts, _ = getopt.getopt(argv, "n:c:", ["annotations=", "compare="])
     except getopt.GetoptError:
         print('main.py -n <annotations number>')
         sys.exit(2)
@@ -108,8 +142,13 @@ def main(argv):
     for opt, arg in opts:
         if opt in ("-n", "--annotations"):
             annotations = arg
+        elif opt in ("-c", "--compare"):
+            filepath = arg
+            compare_with_gt(file_path=filepath)
+            sys.exit(0)
         else:
             print('main.py -n <annotations number>')
+            print('main.py -c <filepath>')
             sys.exit(2)
     try:
         annotations = int(annotations)
@@ -120,7 +159,11 @@ def main(argv):
 
     cta_obj = CTA(annotation_no=annotations)
     try:
-        cta_obj.run()
+        results = cta_obj.run()
+        if results:
+            answer = input("Compare results with gt? [y/N]")
+            if answer in "yYyes":
+                compare_with_gt(results)
     except KeyboardInterrupt:
         print("Exiting...")
 
